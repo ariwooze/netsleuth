@@ -121,8 +121,6 @@ git clone https://github.com/ariwooze/netsleuth.git
 cd netsleuth
 ```
 
-> Replace the repository URL above if your final GitHub repository uses a different name.
-
 Create a virtual environment:
 
 ```bash
@@ -237,16 +235,8 @@ reports/*
 - [ ] Add automated tests and sample sanitized captures
 - [ ] Publish screenshots and a demonstration video
 
-Update these checkboxes as each feature is completed so visitors can immediately understand the project's progress.
+These checkboxes will be updated once each feature is completed so visitors can immediately understand the project's progress.
 
 ## Ethical Use
 
 NetSleuth is created for cybersecurity education, defensive analysis, and authorized laboratory testing. Analyze only networks, systems, and capture files that you own or are explicitly authorized to examine. You are responsible for following applicable laws, organizational policies, and privacy requirements.
-
-## Author
-
-Developed by [ariwooze](https://github.com/ariwooze) as a cybersecurity portfolio project.
-
-## License
-
-No license has been selected yet. Until a license is added, the source code remains subject to the repository owner's copyright. Consider adding an open-source license before inviting others to reuse or contribute to the project.
