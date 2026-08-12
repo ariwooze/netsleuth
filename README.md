@@ -72,14 +72,15 @@ netsleuth/
 ├── core/
 │   ├── __init__.py
 │   ├── pcap_parser.py        # Packet extraction and conversion
-│   └── analyzer.py           # Shared traffic-analysis functions
+│   ├── analyzer.py           # Shared traffic-analysis functions
+│   └── report_generator.py   # Generated investigation reports        
 ├── detectors/
 │   ├── __init__.py
 │   ├── port_scan.py          # Port-scan detection
 │   ├── syn_flood.py          # Planned SYN-flood detection
 │   └── dns_anomaly.py        # Planned DNS analysis
 ├── sample_pcaps/             # Authorized test captures (not committed)
-├── reports/                  # Generated investigation reports
+├── reports/                  
 └── README.md
 ```
 
