@@ -1,4 +1,4 @@
-import pandas as pd 
+import pandas as pd
 
 
 def detect_dns_anomalies(
@@ -6,14 +6,13 @@ def detect_dns_anomalies(
     length_threshold=50,
     repetition_threshold=20
 ):
-
     """
     Detect unusually long or frequently repeated DNS queries.
 
     Parameters:
         packets: DataFrame produced by parse_pcap().
         length_threshold: Query length considered unusual.
-        repetition_threshold: Number pf repeated request required.
+        repetition_threshold: Number of repeated requests required.
 
     Returns:
         A DataFrame containing possible DNS anomalies.
@@ -28,6 +27,13 @@ def detect_dns_anomalies(
     if packets.empty or not required_columns.issubset(packets.columns):
         return pd.DataFrame()
 
+    dns_packets = packets.dropna(
+        subset=["source_ip", "dns_query"]
+    ).copy()
+
+    if dns_packets.empty:
+        return pd.DataFrame()
+
     dns_packets["dns_query"] = (
         dns_packets["dns_query"]
         .astype(str)
@@ -36,7 +42,7 @@ def detect_dns_anomalies(
         .str.lower()
     )
 
-    dns_packets  dns_packets[
+    dns_packets = dns_packets[
         dns_packets["dns_query"] != ""
     ].copy()
 
@@ -110,7 +116,7 @@ def detect_dns_anomalies(
     ).reset_index(drop=True)
 
 
-def determine_reason (
+def determine_reason(
     row,
     length_threshold,
     repetition_threshold
@@ -131,7 +137,7 @@ def assign_severity(row):
     if row["query_length"] >= 100 or row["query_count"] >= 100:
         return "High"
 
-    if row["query_lenght"] >= 70 or row["query_count"] >= 50:
+    if row["query_length"] >= 70 or row["query_count"] >= 50:
         return "Medium"
 
     return "Low"

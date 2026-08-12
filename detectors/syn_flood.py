@@ -1,4 +1,4 @@
-import pandas as pd 
+import pandas as pd
 
 
 def detect_syn_floods(
@@ -9,14 +9,14 @@ def detect_syn_floods(
     """
     Detect possible SYN-flood activity.
 
-    A possible SYN flood occuers when:
+    A possible SYN flood occurs when:
     1. One source sends many SYN packets to a destination.
     2. Most SYN packets do not receive a SYN-ACK response.
 
-    Paramenters:
-        packets: DataFrame produced by parse_pcapp().
-        syn_threshold: Minimum SYN packets required. 
-        unanswered_ratio_threshold: Reuired unaswered SYN ration.
+    Parameters:
+        packets: DataFrame produced by parse_pcap().
+        syn_threshold: Minimum SYN packets required.
+        unanswered_ratio_threshold: Required unanswered SYN ratio.
 
     Returns:
         A DataFrame containing possible SYN-flood alerts.
@@ -33,11 +33,11 @@ def detect_syn_floods(
     if packets.empty or not required_columns.issubset(packets.columns):
         return pd.DataFrame()
 
-    tcp_packets = packets.dropma(
+    tcp_packets = packets.dropna(
         subset=["source_ip", "destination_ip"]
     ).copy()
 
-    #Pyshart returns TCP flag values as strings.
+    # PyShark normally returns TCP flag values as strings.
     tcp_packets["tcp_syn"] = (
         tcp_packets["tcp_syn"]
         .astype(str)
@@ -52,7 +52,7 @@ def detect_syn_floods(
         .isin(["1", "true"])
     )
 
-    #Initial SYN: SYN=1 and ACK=0
+    # Initial SYN: SYN=1 and ACK=0
     syn_packets = tcp_packets[
         tcp_packets["tcp_syn"] & ~tcp_packets["tcp_ack"]
     ].copy()
@@ -68,12 +68,11 @@ def detect_syn_floods(
             first_packet=("packet_number", "min"),
             last_packet=("packet_number", "max"),
         )
-
         .reset_index()
     )
 
     # Response SYN-ACK: SYN=1 and ACK=1
-    syn_ack_packets  tcp_packets[
+    syn_ack_packets = tcp_packets[
         tcp_packets["tcp_syn"] & tcp_packets["tcp_ack"]
     ].copy()
 
@@ -137,7 +136,7 @@ def detect_syn_floods(
         + suspicious["destination_ip"].astype(str)
     )
 
-    suspicious["unanswered_ration"] = (
+    suspicious["unanswered_ratio"] = (
         suspicious["unanswered_ratio"] * 100
     ).round(2)
 
