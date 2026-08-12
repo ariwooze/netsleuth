@@ -72,7 +72,7 @@ def create_traffic_summary(packets):
 
     return {
         "total_packets": len(packets),
-        "total_bytes" total_bytes,
+        "total_bytes": total_bytes,
         "unique_sources": safe_nunique(
             packets,
             "source_ip"
