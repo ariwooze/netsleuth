@@ -225,10 +225,10 @@ reports/*
 
 ## Roadmap
 
-- [ ] Build the PCAP upload interface
-- [ ] Implement packet parsing and data cleaning
-- [ ] Add summary metrics and protocol visualizations
-- [ ] Implement and validate port-scan detection
+- [x] Build the PCAP upload interface
+- [x] Implement packet parsing and data cleaning
+- [x] Add summary metrics and protocol visualizations
+- [x] Implement and validate port-scan detection
 - [ ] Add SYN-flood and DNS-anomaly detection
 - [ ] Add evidence filters and alert investigation views
 - [ ] Add investigation-report export
