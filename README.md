@@ -229,7 +229,7 @@ reports/*
 - [x] Implement packet parsing and data cleaning
 - [x] Add summary metrics and protocol visualizations
 - [x] Implement and validate port-scan detection
-- [ ] Add SYN-flood and DNS-anomaly detection
+- [x] Add SYN-flood and DNS-anomaly detection
 - [ ] Add evidence filters and alert investigation views
 - [ ] Add investigation-report export
 - [ ] Add automated tests and sample sanitized captures
