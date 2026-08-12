@@ -5,6 +5,7 @@ import plotly.express as px
 import streamlit as st
 
 from core.pcap_parser import parse_pcap
+from detectors.port_scan import detect_port_scans
 
 st.set_page_config(
     page_title="NetSleuth",
@@ -43,7 +44,7 @@ try:
         st.warning("No readable packets were found")
         st.stop()
 
-    st.success(f"Analyzed {len(packers):,} packets")
+    st.success(f"Analyzed {len(packets):,} packets")
 
     total_bytes = int(packets["packet_length"].fillna(0).sum())
     unique_sources = packets["source_ip"].nunique()
@@ -55,6 +56,23 @@ try:
     column2.metric("Traffic volume", f"{total_bytes:,} bytes")
     column3.metric("Source IPs", unique_sources)
     column4.metric("Destination IPs", unique_destinations)
+
+    port_scan_alerts = detect_port_scans(packets)
+
+    st.header("Security findings")
+
+    if port_scan_alerts.empty:
+        st.success("No port scans matched the current detection threshold.")
+    else:
+        st.warning(
+            f"Detected {len(port_scan_alerts)} possible port-scan activities."
+        )
+
+        st.dataframe(
+            port_scan_alerts,
+            use_container_width=True,
+            hide_index=True
+        )
 
     st.header("Protocol distribution")
 
