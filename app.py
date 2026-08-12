@@ -1,13 +1,17 @@
 import os
 import tempfile
 
-import pandas as pd
 import plotly.express as px
 import streamlit as st
 
 from core.analyzer import analyze_packets
 from core.pcap_parser import parse_pcap
+from core.report_generator import generate_html_report
 
+
+# ---------------------------------------------------------
+# Page configuration
+# ---------------------------------------------------------
 
 st.set_page_config(
     page_title="NetSleuth",
@@ -15,27 +19,124 @@ st.set_page_config(
     layout="wide",
 )
 
+
+# ---------------------------------------------------------
+# Helper functions
+# ---------------------------------------------------------
+
+def format_bytes(byte_count):
+    """Convert bytes into a readable format."""
+
+    byte_count = float(byte_count or 0)
+
+    for unit in ["bytes", "KB", "MB", "GB"]:
+        if byte_count < 1024 or unit == "GB":
+            if unit == "bytes":
+                return f"{int(byte_count):,} {unit}"
+
+            return f"{byte_count:,.2f} {unit}"
+
+        byte_count /= 1024
+
+
+def display_alert_table(
+    alerts,
+    empty_message,
+    finding_name,
+):
+    """Display one detector's findings."""
+
+    if alerts is None or alerts.empty:
+        st.success(empty_message)
+        return
+
+    st.warning(
+        f"Detected {len(alerts)} possible "
+        f"{finding_name}(s) requiring investigation."
+    )
+
+    st.dataframe(
+        alerts,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+
+# ---------------------------------------------------------
+# Application header
+# ---------------------------------------------------------
+
 st.title("🔍 NetSleuth")
 st.subheader("PCAP Security Investigation Dashboard")
 
-st.info(
-    "Upload a PCAP or PCAPNG file to summarize network traffic "
-    "and identify possible port scans, SYN floods, and DNS anomalies."
+st.write(
+    "Upload a PCAP or PCAPNG file to summarize network traffic, "
+    "identify suspicious activity and generate an investigation report."
 )
+
+st.info(
+    "NetSleuth uses rule-based detection. Its findings indicate "
+    "activity requiring investigation and do not prove that an "
+    "attack occurred."
+)
+
+
+# ---------------------------------------------------------
+# Sidebar
+# ---------------------------------------------------------
+
+with st.sidebar:
+    st.header("About NetSleuth")
+
+    st.write(
+        "NetSleuth is an offline packet-capture analysis platform "
+        "for investigating network activity."
+    )
+
+    st.subheader("Current detectors")
+
+    st.markdown(
+        """
+        - Possible port scans
+        - Possible SYN floods
+        - DNS anomalies
+        """
+    )
+
+    st.subheader("Privacy reminder")
+
+    st.caption(
+        "Only upload packet captures that you are authorized to "
+        "analyze. PCAP files may contain sensitive information."
+    )
+
+
+# ---------------------------------------------------------
+# File upload
+# ---------------------------------------------------------
 
 uploaded_file = st.file_uploader(
     "Upload a packet capture",
     type=["pcap", "pcapng"],
+    help="Maximum packet processing depends on the limit in pcap_parser.py.",
 )
 
 if uploaded_file is None:
-    st.write("No packet capture has been uploaded.")
+    st.info("Upload a PCAP or PCAPNG file to begin the investigation.")
     st.stop()
+
+
+# ---------------------------------------------------------
+# Save uploaded capture temporarily
+# ---------------------------------------------------------
 
 temporary_path = None
 
 try:
     file_suffix = os.path.splitext(uploaded_file.name)[1]
+
+    if not file_suffix:
+        file_suffix = ".pcap"
 
     with tempfile.NamedTemporaryFile(
         delete=False,
@@ -44,13 +145,24 @@ try:
         temporary_file.write(uploaded_file.getbuffer())
         temporary_path = temporary_file.name
 
+    # -----------------------------------------------------
+    # Parse the capture
+    # -----------------------------------------------------
+
     with st.spinner("Extracting and analyzing packets..."):
         packets = parse_pcap(temporary_path)
-        analysis = analyze_packets(packets)
 
-    if packets.empty:
-        st.warning("No readable packets were found in this capture.")
+    if packets is None or packets.empty:
+        st.warning(
+            "No readable packets were found in the uploaded capture."
+        )
         st.stop()
+
+    # -----------------------------------------------------
+    # Run the analyzers
+    # -----------------------------------------------------
+
+    analysis = analyze_packets(packets)
 
     summary = analysis["summary"]
     alert_counts = analysis["alert_counts"]
@@ -58,29 +170,32 @@ try:
 
     st.success(
         f"Successfully analyzed {summary['total_packets']:,} packets "
-        f"from {uploaded_file.name}"
+        f"from {uploaded_file.name}."
     )
 
-    # ---------------------------------------------------------
-    # Traffic summary
-    # ---------------------------------------------------------
+    # -----------------------------------------------------
+    # Capture summary
+    # -----------------------------------------------------
 
-    st.header("Traffic Summary")
+    st.header("Capture summary")
 
     column1, column2, column3, column4 = st.columns(4)
 
     column1.metric(
-        "Total packets",
+        "Packets",
         f"{summary['total_packets']:,}",
     )
+
     column2.metric(
         "Traffic volume",
-        f"{summary['total_bytes']:,} bytes",
+        format_bytes(summary["total_bytes"]),
     )
+
     column3.metric(
         "Source IPs",
         summary["unique_sources"],
     )
+
     column4.metric(
         "Destination IPs",
         summary["unique_destinations"],
@@ -92,16 +207,17 @@ try:
         "Protocols",
         summary["unique_protocols"],
     )
+
     column6.metric(
         "DNS queries",
         summary["dns_queries"],
     )
 
-    # ---------------------------------------------------------
+    # -----------------------------------------------------
     # Security overview
-    # ---------------------------------------------------------
+    # -----------------------------------------------------
 
-    st.header("Security Overview")
+    st.header("Security overview")
 
     alert_column1, alert_column2, alert_column3, alert_column4 = (
         st.columns(4)
@@ -111,389 +227,396 @@ try:
         "Total alerts",
         alert_counts["total"],
     )
+
     alert_column2.metric(
         "Port scans",
         alert_counts["port_scans"],
     )
+
     alert_column3.metric(
         "SYN floods",
         alert_counts["syn_floods"],
     )
+
     alert_column4.metric(
         "DNS anomalies",
         alert_counts["dns_anomalies"],
     )
 
+    severity_column1, severity_column2, severity_column3 = (
+        st.columns(3)
+    )
+
+    severity_column1.metric(
+        "High severity",
+        severity_counts["High"],
+    )
+
+    severity_column2.metric(
+        "Medium severity",
+        severity_counts["Medium"],
+    )
+
+    severity_column3.metric(
+        "Low severity",
+        severity_counts["Low"],
+    )
+
     if alert_counts["total"] == 0:
         st.success(
-            "No activity matched the current detection thresholds."
+            "No activity matched the current detection rules. "
+            "This does not guarantee that the capture is threat-free."
+        )
+    elif severity_counts["High"] > 0:
+        st.error(
+            "High-severity activity was detected. Review the "
+            "supporting packets as soon as possible."
+        )
+    elif severity_counts["Medium"] > 0:
+        st.warning(
+            "Potentially suspicious activity was detected and "
+            "should be manually investigated."
         )
     else:
-        st.warning(
-            f"{alert_counts['total']} possible security finding(s) "
-            "require investigation."
+        st.info(
+            "Low-severity findings were detected. Review them to "
+            "determine whether the activity is expected."
         )
 
-    severity_table = pd.DataFrame(
-        {
-            "Severity": ["High", "Medium", "Low"],
-            "Alert count": [
-                severity_counts["High"],
-                severity_counts["Medium"],
-                severity_counts["Low"],
-            ],
-        }
-    )
-
-    severity_chart = px.bar(
-        severity_table,
-        x="Severity",
-        y="Alert count",
-        color="Severity",
-        title="Alerts by severity",
-        color_discrete_map={
-            "High": "#d62728",
-            "Medium": "#ff7f0e",
-            "Low": "#f1c40f",
-        },
-        category_orders={
-            "Severity": ["High", "Medium", "Low"],
-        },
-    )
-
-    severity_chart.update_layout(showlegend=False)
-
-    st.plotly_chart(
-        severity_chart,
-        use_container_width=True,
-    )
-
-    # ---------------------------------------------------------
-    # Security findings
-    # ---------------------------------------------------------
-
-    st.header("Security Findings")
-
-    port_scan_tab, syn_flood_tab, dns_anomaly_tab = st.tabs(
-        [
-            "Port Scans",
-            "SYN Floods",
-            "DNS Anomalies",
-        ]
-    )
-
-    with port_scan_tab:
-        port_scan_alerts = analysis["port_scan_alerts"]
-
-        st.caption(
-            "Detects a source contacting many destination ports "
-            "on the same target."
-        )
-
-        if port_scan_alerts.empty:
-            st.success("No possible port scans detected.")
-        else:
-            st.warning(
-                f"{len(port_scan_alerts)} possible port scan(s) detected."
-            )
-
-            st.dataframe(
-                port_scan_alerts,
-                use_container_width=True,
-                hide_index=True,
-            )
-
-    with syn_flood_tab:
-        syn_flood_alerts = analysis["syn_flood_alerts"]
-
-        st.caption(
-            "Detects a high number of TCP SYN packets with a large "
-            "proportion of unanswered connection attempts."
-        )
-
-        if syn_flood_alerts.empty:
-            st.success("No possible SYN floods detected.")
-        else:
-            st.warning(
-                f"{len(syn_flood_alerts)} possible SYN flood(s) detected."
-            )
-
-            st.dataframe(
-                syn_flood_alerts,
-                use_container_width=True,
-                hide_index=True,
-            )
-
-    with dns_anomaly_tab:
-        dns_anomaly_alerts = analysis["dns_anomaly_alerts"]
-
-        st.caption(
-            "Detects unusually long or frequently repeated DNS queries."
-        )
-
-        if dns_anomaly_alerts.empty:
-            st.success("No possible DNS anomalies detected.")
-        else:
-            st.warning(
-                f"{len(dns_anomaly_alerts)} possible DNS "
-                "anomaly alert(s) detected."
-            )
-
-            st.dataframe(
-                dns_anomaly_alerts,
-                use_container_width=True,
-                hide_index=True,
-            )
-
-    # ---------------------------------------------------------
+    # -----------------------------------------------------
     # Traffic visualizations
-    # ---------------------------------------------------------
+    # -----------------------------------------------------
 
-    st.header("Traffic Visualizations")
+    st.header("Traffic analysis")
 
-    protocol_column, source_column = st.columns(2)
-
-    with protocol_column:
-        protocol_counts = (
-            packets["protocol"]
-            .fillna("Unknown")
-            .value_counts()
-            .head(15)
-            .reset_index()
-        )
-
-        protocol_counts.columns = [
-            "Protocol",
-            "Packet count",
+    chart_tab1, chart_tab2, chart_tab3 = st.tabs(
+        [
+            "Protocols",
+            "Top source IPs",
+            "Top destination IPs",
         ]
+    )
 
-        protocol_chart = px.bar(
-            protocol_counts,
-            x="Protocol",
-            y="Packet count",
-            title="Most Common Protocols",
-            color="Packet count",
-            color_continuous_scale="Blues",
-        )
-
-        protocol_chart.update_layout(
-            coloraxis_showscale=False
-        )
-
-        st.plotly_chart(
-            protocol_chart,
-            use_container_width=True,
-        )
-
-    with source_column:
-        source_counts = (
-            packets["source_ip"]
-            .dropna()
-            .value_counts()
-            .head(10)
-            .reset_index()
-        )
-
-        source_counts.columns = [
-            "Source IP",
-            "Packet count",
-        ]
-
-        if source_counts.empty:
-            st.info("No source IP addresses were extracted.")
+    with chart_tab1:
+        if "protocol" not in packets.columns:
+            st.info("Protocol information is unavailable.")
         else:
-            source_chart = px.bar(
-                source_counts,
-                x="Packet count",
-                y="Source IP",
-                orientation="h",
-                title="Top Source IP Addresses",
-                color="Packet count",
-                color_continuous_scale="Oranges",
+            protocol_counts = (
+                packets["protocol"]
+                .fillna("Unknown")
+                .value_counts()
+                .head(15)
+                .reset_index()
             )
 
-            source_chart.update_layout(
-                yaxis={
-                    "categoryorder": "total ascending"
+            protocol_counts.columns = [
+                "protocol",
+                "packet_count",
+            ]
+
+            protocol_chart = px.bar(
+                protocol_counts,
+                x="protocol",
+                y="packet_count",
+                title="Most common protocols",
+                labels={
+                    "protocol": "Protocol",
+                    "packet_count": "Packet count",
                 },
-                coloraxis_showscale=False,
+                color="packet_count",
+                color_continuous_scale="Blues",
+            )
+
+            protocol_chart.update_layout(
+                coloraxis_showscale=False
             )
 
             st.plotly_chart(
-                source_chart,
+                protocol_chart,
                 use_container_width=True,
             )
 
-    # ---------------------------------------------------------
-    # Network conversations
-    # ---------------------------------------------------------
-
-    st.header("Top Network Conversations")
-
-    conversations = packets.dropna(
-        subset=["source_ip", "destination_ip"]
-    ).copy()
-
-    if conversations.empty:
-        st.info("No IP conversations were found.")
-    else:
-        conversations = (
-            conversations
-            .groupby(
-                ["source_ip", "destination_ip"],
-                dropna=False,
+    with chart_tab2:
+        if "source_ip" not in packets.columns:
+            st.info("Source-IP information is unavailable.")
+        else:
+            source_counts = (
+                packets["source_ip"]
+                .dropna()
+                .value_counts()
+                .head(10)
+                .reset_index()
             )
-            .agg(
-                packet_count=("packet_number", "count"),
-                total_bytes=("packet_length", "sum"),
-            )
-            .reset_index()
-            .sort_values(
+
+            source_counts.columns = [
+                "source_ip",
                 "packet_count",
-                ascending=False,
+            ]
+
+            if source_counts.empty:
+                st.info("No source IP addresses were extracted.")
+            else:
+                source_chart = px.bar(
+                    source_counts,
+                    x="packet_count",
+                    y="source_ip",
+                    orientation="h",
+                    title="Top source IP addresses",
+                    labels={
+                        "source_ip": "Source IP",
+                        "packet_count": "Packet count",
+                    },
+                    color="packet_count",
+                    color_continuous_scale="Teal",
+                )
+
+                source_chart.update_layout(
+                    yaxis={"categoryorder": "total ascending"},
+                    coloraxis_showscale=False,
+                )
+
+                st.plotly_chart(
+                    source_chart,
+                    use_container_width=True,
+                )
+
+                st.dataframe(
+                    source_counts,
+                    use_container_width=True,
+                    hide_index=True,
+                )
+
+    with chart_tab3:
+        if "destination_ip" not in packets.columns:
+            st.info("Destination-IP information is unavailable.")
+        else:
+            destination_counts = (
+                packets["destination_ip"]
+                .dropna()
+                .value_counts()
+                .head(10)
+                .reset_index()
             )
-            .head(20)
+
+            destination_counts.columns = [
+                "destination_ip",
+                "packet_count",
+            ]
+
+            if destination_counts.empty:
+                st.info(
+                    "No destination IP addresses were extracted."
+                )
+            else:
+                destination_chart = px.bar(
+                    destination_counts,
+                    x="packet_count",
+                    y="destination_ip",
+                    orientation="h",
+                    title="Top destination IP addresses",
+                    labels={
+                        "destination_ip": "Destination IP",
+                        "packet_count": "Packet count",
+                    },
+                    color="packet_count",
+                    color_continuous_scale="Purples",
+                )
+
+                destination_chart.update_layout(
+                    yaxis={"categoryorder": "total ascending"},
+                    coloraxis_showscale=False,
+                )
+
+                st.plotly_chart(
+                    destination_chart,
+                    use_container_width=True,
+                )
+
+                st.dataframe(
+                    destination_counts,
+                    use_container_width=True,
+                    hide_index=True,
+                )
+
+    # -----------------------------------------------------
+    # Security findings
+    # -----------------------------------------------------
+
+    st.header("Security findings")
+
+    finding_tab1, finding_tab2, finding_tab3 = st.tabs(
+        [
+            "Port scans",
+            "SYN floods",
+            "DNS anomalies",
+        ]
+    )
+
+    with finding_tab1:
+        st.write(
+            "Identifies a source contacting an unusually large "
+            "number of destination ports."
         )
 
-        conversations["total_bytes"] = pd.to_numeric(
-            conversations["total_bytes"],
-            errors="coerce",
-        ).fillna(0).astype(int)
-
-        conversations = conversations.rename(
-            columns={
-                "source_ip": "Source IP",
-                "destination_ip": "Destination IP",
-                "packet_count": "Packet count",
-                "total_bytes": "Total bytes",
-            }
+        display_alert_table(
+            alerts=analysis["port_scan_alerts"],
+            empty_message=(
+                "No possible port scans matched the current threshold."
+            ),
+            finding_name="port scan",
         )
 
-        st.dataframe(
-            conversations,
-            use_container_width=True,
-            hide_index=True,
+    with finding_tab2:
+        st.write(
+            "Identifies a high number of TCP SYN packets where "
+            "many connections appear to remain unanswered."
         )
 
-    # ---------------------------------------------------------
+        display_alert_table(
+            alerts=analysis["syn_flood_alerts"],
+            empty_message=(
+                "No possible SYN floods matched the current threshold."
+            ),
+            finding_name="SYN flood",
+        )
+
+    with finding_tab3:
+        st.write(
+            "Identifies unusually long or frequently repeated "
+            "DNS queries."
+        )
+
+        display_alert_table(
+            alerts=analysis["dns_anomaly_alerts"],
+            empty_message=(
+                "No DNS anomalies matched the current threshold."
+            ),
+            finding_name="DNS anomaly",
+        )
+
+    # -----------------------------------------------------
     # Packet evidence
-    # ---------------------------------------------------------
+    # -----------------------------------------------------
 
-    st.header("Packet Evidence")
+    st.header("Packet evidence")
 
     st.caption(
-        "Use the controls below to narrow the packet table. "
-        "A security finding is an indicator requiring investigation, "
-        "not proof of an attack."
+        "Use the filters below to narrow the packet table before "
+        "investigating the original capture in Wireshark."
     )
-
-    filter_column1, filter_column2 = st.columns(2)
-
-    available_protocols = sorted(
-        packets["protocol"]
-        .dropna()
-        .astype(str)
-        .unique()
-        .tolist()
-    )
-
-    with filter_column1:
-        selected_protocols = st.multiselect(
-            "Filter by protocol",
-            options=available_protocols,
-        )
-
-    available_sources = sorted(
-        packets["source_ip"]
-        .dropna()
-        .astype(str)
-        .unique()
-        .tolist()
-    )
-
-    with filter_column2:
-        selected_sources = st.multiselect(
-            "Filter by source IP",
-            options=available_sources,
-        )
 
     filtered_packets = packets.copy()
 
-    if selected_protocols:
-        filtered_packets = filtered_packets[
-            filtered_packets["protocol"]
-            .astype(str)
-            .isin(selected_protocols)
-        ]
+    filter_column1, filter_column2 = st.columns(2)
 
-    if selected_sources:
-        filtered_packets = filtered_packets[
-            filtered_packets["source_ip"]
-            .astype(str)
-            .isin(selected_sources)
-        ]
+    with filter_column1:
+        if "protocol" in packets.columns:
+            available_protocols = sorted(
+                packets["protocol"]
+                .dropna()
+                .astype(str)
+                .unique()
+                .tolist()
+            )
+
+            selected_protocols = st.multiselect(
+                "Filter by protocol",
+                options=available_protocols,
+            )
+
+            if selected_protocols:
+                filtered_packets = filtered_packets[
+                    filtered_packets["protocol"]
+                    .astype(str)
+                    .isin(selected_protocols)
+                ]
+
+    with filter_column2:
+        ip_search = st.text_input(
+            "Search for an IP address",
+            placeholder="Example: 192.168.56.102",
+        )
+
+        if ip_search:
+            source_matches = (
+                filtered_packets["source_ip"]
+                .fillna("")
+                .astype(str)
+                .str.contains(
+                    ip_search,
+                    case=False,
+                    regex=False,
+                )
+            )
+
+            destination_matches = (
+                filtered_packets["destination_ip"]
+                .fillna("")
+                .astype(str)
+                .str.contains(
+                    ip_search,
+                    case=False,
+                    regex=False,
+                )
+            )
+
+            filtered_packets = filtered_packets[
+                source_matches | destination_matches
+            ]
 
     st.write(
-        f"Showing {len(filtered_packets):,} of "
-        f"{len(packets):,} packets"
+        f"Displaying {len(filtered_packets):,} of "
+        f"{len(packets):,} packets."
     )
 
-    preferred_columns = [
-        "packet_number",
-        "timestamp",
-        "source_ip",
-        "destination_ip",
-        "protocol",
-        "source_port",
-        "destination_port",
-        "packet_length",
-        "tcp_syn",
-        "tcp_ack",
-        "dns_query",
-    ]
-
-    visible_columns = [
-        column
-        for column in preferred_columns
-        if column in filtered_packets.columns
-    ]
-
     st.dataframe(
-        filtered_packets[visible_columns],
+        filtered_packets,
         use_container_width=True,
         hide_index=True,
     )
 
-    # ---------------------------------------------------------
-    # Download packet data
-    # ---------------------------------------------------------
+    # -----------------------------------------------------
+    # Report export
+    # -----------------------------------------------------
 
-    packet_csv = filtered_packets[
-        visible_columns
-    ].to_csv(index=False)
+    st.header("Export investigation report")
 
-    st.download_button(
-        label="Download filtered packet evidence as CSV",
-        data=packet_csv,
-        file_name="netsleuth_packet_evidence.csv",
-        mime="text/csv",
+    html_report = generate_html_report(
+        analysis=analysis,
+        capture_name=uploaded_file.name,
     )
 
-    # ---------------------------------------------------------
-    # Limitations
-    # ---------------------------------------------------------
+    capture_base_name = os.path.splitext(
+        uploaded_file.name
+    )[0]
 
-    with st.expander("Detection limitations"):
-        st.markdown(
-            """
-            - Findings are generated using rule-based thresholds.
-            - An alert does not confirm that an attack occurred.
-            - Legitimate scanning or testing can produce alerts.
-            - Packet loss and incomplete captures can affect SYN analysis.
-            - Legitimate cloud services may generate long DNS queries.
-            - Only the configured packet limit is analyzed.
-            """
-        )
+    report_filename = (
+        f"netsleuth_report_{capture_base_name}.html"
+    )
+
+    st.download_button(
+        label="Download HTML investigation report",
+        data=html_report,
+        file_name=report_filename,
+        mime="text/html",
+        use_container_width=True,
+    )
+
+    st.caption(
+        "To create a PDF, open the downloaded HTML report in a "
+        "browser and select Print → Save as PDF."
+    )
+
+except Exception as error:
+    st.error("NetSleuth could not analyze the uploaded capture.")
+
+    st.exception(error)
+
+    st.info(
+        "Check that TShark is installed, the uploaded file is a "
+        "valid PCAP or PCAPNG file, and all required Python "
+        "packages are installed."
+    )
 
 finally:
     if temporary_path and os.path.exists(temporary_path):
