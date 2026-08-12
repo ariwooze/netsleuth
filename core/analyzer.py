@@ -24,7 +24,7 @@ def analyze_packets(packets):
     syn_flood_alerts = detect_syn_floods(packets)
     dns_anomaly_alerts = detect_dns_anomalies(packets)
 
-    summary == create_traffic_summary(packets)
+    summary = create_traffic_summary(packets)
 
     total_alerts = (
         len(port_scan_alerts)
@@ -93,7 +93,7 @@ def create_traffic_summary(packets):
 
 
 def count_severities(*alert_tables):
-    """Count Low, Medium and High alerts. """    
+    """Count Low, Medium and High alerts."""
 
     counts = {
         "High": 0,
@@ -109,10 +109,10 @@ def count_severities(*alert_tables):
 
         for severity in counts:
             counts[severity] += int(
-                table_count.get(severity, 0)
+                table_counts.get(severity, 0)
             )
 
-    return counts 
+    return counts
 
 
 def safe_nunique(packets, column):
