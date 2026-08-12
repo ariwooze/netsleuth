@@ -172,28 +172,6 @@ The initial detector groups packets by source and destination IP address, then c
 
 These thresholds are starting values for a learning project. Legitimate vulnerability scanners, administrators, monitoring tools, and applications may create similar traffic, so the result must be validated using context and packet evidence.
 
-## Testing the Port-Scan Detector
-
-Use only systems that you own or have explicit permission to test. A safe option is an isolated Kali Linux and Metasploitable 2 lab.
-
-1. Start a Wireshark capture on the isolated lab interface.
-2. From Kali, scan your Metasploitable 2 VM:
-
-   ```bash
-   nmap -sS <METASPLOITABLE_IP>
-   ```
-
-3. Stop the capture and save it as `port_scan.pcapng`.
-4. Upload the file to NetSleuth.
-5. Confirm that the source, destination, port count, and severity are reasonable.
-6. Validate the result in Wireshark with:
-
-   ```text
-   ip.src == <KALI_IP> && tcp.flags.syn == 1 && tcp.flags.ack == 0
-   ```
-
-Record the expected result, actual result, and supporting Wireshark evidence. This makes the testing process reproducible and demonstrates that dashboard findings were manually verified.
-
 ## Data and Privacy
 
 - Uploaded captures are processed locally.
@@ -201,18 +179,6 @@ Record the expected result, actual result, and supporting Wireshark evidence. Th
 - Sanitize screenshots before publishing them.
 - Avoid displaying credentials, tokens, personal data, internal IP plans, or confidential domain names.
 - Use synthetic, public training, or self-generated captures whenever possible.
-
-Add capture files to `.gitignore`, for example:
-
-```gitignore
-*.pcap
-*.pcapng
-venv/
-__pycache__/
-.streamlit/secrets.toml
-reports/*
-!reports/.gitkeep
-```
 
 ## Known Limitations
 
