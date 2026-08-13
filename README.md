@@ -41,17 +41,6 @@ All detections are rule-based and explainable. A finding indicates suspicious ac
 - Export investigation results as a PDF report
 - Export filtered packet evidence as a CSV file
 
-### Planned Enhancements
-
-- Detect cleartext credentials and insecure protocols
-- Detect suspicious outbound connections
-- Add more advanced investigation filters
-- Improve alert-to-packet evidence correlation
-- Allow users to configure detection thresholds
-- Add automated parser and detector tests
-- Add additional detection rules and protocol analysis
-- Support comparisons between multiple packet captures
-
 ## How It Works
 
 1. The user uploads a packet-capture file.
