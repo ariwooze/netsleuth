@@ -4,9 +4,7 @@
 
 NetSleuth is a beginner-friendly, local web application for examining packet-capture files. It converts raw network packets into readable summaries, interactive visualizations, explainable security findings, and packet-level evidence that an analyst can investigate.
 
-The project is intended for offline analysis of `.pcap` and `.pcapng` files. It does not capture live traffic, block attacks, or replace a professional intrusion-detection system.
-
-> **Project status:** Early development. The initial dashboard and detection modules are being built progressively. Features marked as planned may not be available yet.
+The project is intended for offline analysis of `.pcap` and `.pcapng` files. It does not capture live traffic, block attacks, or replace a professional intrusion-detection system
 
 ## Why This Project?
 
@@ -79,8 +77,12 @@ netsleuth/
 │   ├── port_scan.py          # Port-scan detection
 │   ├── syn_flood.py          # Planned SYN-flood detection
 │   └── dns_anomaly.py        # Planned DNS analysis
-├── sample_pcaps/             # Authorized test captures (not committed)
-├── reports/                  
+├── sample_pcaps/             # Authorized test captures
+│   ├── normal_traffic.pcap
+│   ├── port_scan.pcap
+│   ├── syn_flood.pcap
+│   ├── dns_anomaly.pcap
+│   └── combined_findings.pcap                
 └── README.md
 ```
 
@@ -244,7 +246,7 @@ These packet captures contain only synthetic traffic generated for an isolated t
 | `port_scan.pcap` | 80 | Port-scan alert: one source contacts 80 destination ports |
 | `syn_flood.pcap` | 300 | SYN-flood alert: 300 unanswered SYN packets in under one second |
 | `dns_anomaly.pcap` | 38 | DNS alerts: 35 repeated queries and 3 long queries |
-| `combined_findings.pcap` | 418 | Alerts from all three detectors |
+| `combined_findings.pcap` | 418 | Alerts from all three detectors, 447 packets with different IPs, ports, domains, and traffic volumes.|
 
 ## Test procedure
 
@@ -287,12 +289,9 @@ Exact alert counts depend on the thresholds and grouping logic in your detector 
 - [x] Build the PCAP upload interface
 - [x] Implement packet parsing and data cleaning
 - [x] Add summary metrics and protocol visualizations
-- [x] Implement and validate port-scan detection
-- [x] Add SYN-flood and DNS-anomaly detection
-- [ ] Add evidence filters and alert investigation views
+- [x] Implement and validate port-x] Add evidence filters and alert investigation views
 - [x] Add investigation-report export
-- [ ] Add automated tests and sample sanitized captures
-- [ ] Publish screenshots and a demonstration video
+- [x] Add sanitized sample captures
 
 These checkboxes will be updated once each feature is completed so visitors can immediately understand the project's progress.
 
