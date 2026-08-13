@@ -160,17 +160,109 @@ Stop the application by pressing `Ctrl+C` in the terminal.
 
 ## Detection Logic
 
-### Possible port scan
+NetSleuth uses rule-based detection to identify network activity that may require further investigation. A finding does not confirm that an attack occurred. Analysts should validate each result using packet evidence and environmental context.
 
-The initial detector groups packets by source and destination IP address, then counts the number of unique destination ports contacted. If the number exceeds a configured threshold, NetSleuth creates a finding.
+### Possible Port Scan
+
+The detector groups packets by source and destination IP address, then counts the number of unique destination ports contacted. If the number exceeds a configured threshold, NetSleuth creates a finding.
 
 | Unique destination ports | Severity |
-|---:|---|
-| 15–39 | Low |
-| 40–99 | Medium |
-| 100 or more | High |
+| -----------------------: | -------- |
+|                    15–39 | Low      |
+|                    40–99 | Medium   |
+|              100 or more | High     |
 
-These thresholds are starting values for a learning project. Legitimate vulnerability scanners, administrators, monitoring tools, and applications may create similar traffic, so the result must be validated using context and packet evidence.
+Legitimate vulnerability scanners, administrators, monitoring tools, and applications may create similar traffic. Port-scan findings should therefore be validated against authorized scanning activities and expected network behaviour.
+
+### Possible SYN Flood
+
+The detector examines TCP traffic and groups packets by source IP address, destination IP address, and destination port. It counts TCP SYN packets without the ACK flag within a 10-second window.
+
+If the number exceeds a configured threshold, NetSleuth creates a finding.
+
+| SYN packets within 10 seconds | Severity |
+| ----------------------------: | -------- |
+|                         20–49 | Low      |
+|                         50–99 | Medium   |
+|                   100 or more | High     |
+
+A large number of SYN packets may indicate an attempt to exhaust the destination system's available connection resources.
+
+However, legitimate traffic bursts, unavailable servers, network interruptions, or incomplete packet captures may produce similar results. Analysts should check for corresponding SYN-ACK or RST responses before confirming a SYN-flood attack.
+
+### Possible DNS Anomaly
+
+The detector examines DNS query traffic for two types of unusual behaviour:
+
+1. Repeated requests for the same domain from the same source.
+2. DNS queries containing unusually long domain names.
+
+#### Repeated DNS Queries
+
+The detector groups DNS packets by source IP address and queried domain, then counts identical queries within a 60-second window.
+
+| Identical queries within 60 seconds | Severity |
+| ----------------------------------: | -------- |
+|                               10–19 | Low      |
+|                               20–49 | Medium   |
+|                          50 or more | High     |
+
+Repeated DNS requests may be caused by application behaviour, DNS retries, configuration problems, automated scripts, or malware attempting command-and-control communication.
+
+#### Unusually Long DNS Queries
+
+The detector calculates the total number of characters in each queried domain name.
+
+| Domain-name length      | Severity |
+| ----------------------: | -------- |
+|        50–74 characters | Low      |
+|        75–99 characters | Medium   |
+| 100 or more characters  | High     |
+
+Long domain names may be associated with encoded information, DNS tunnelling, tracking services, or automatically generated subdomains. However, legitimate cloud services and content-delivery networks may also use long domain names.
+
+When a DNS query matches more than one condition, NetSleuth assigns the highest applicable severity.
+
+DNS findings should be validated using:
+
+- The source system generating the requests
+- The queried domain and its reputation
+- The number and frequency of queries
+- DNS response codes
+- Query and response sizes
+- Related network and endpoint activity
+
+> **Important:** These thresholds are starting values for a learning project. They may require adjustment for different network sizes, traffic patterns, capture durations, and operational environments.
+
+# Sample PCAP Test Pack
+
+These packet captures contain only synthetic traffic generated for an isolated test environment. The IP ranges (`192.0.2.0/24` and `198.51.100.0/24`) and `.test` domain names are reserved for documentation and testing.
+
+| File | Packets | Intended result |
+| --- | ---: | --- |
+| `normal_traffic.pcap` | 26 | No alerts under typical thresholds |
+| `port_scan.pcap` | 80 | Port-scan alert: one source contacts 80 destination ports |
+| `syn_flood.pcap` | 300 | SYN-flood alert: 300 unanswered SYN packets in under one second |
+| `dns_anomaly.pcap` | 38 | DNS alerts: 35 repeated queries and 3 long queries |
+| `combined_findings.pcap` | 418 | Alerts from all three detectors |
+
+## Test procedure
+
+1. Start NetSleuth with `python -m streamlit run app.py`.
+2. Upload `normal_traffic.pcap` and confirm that the packet summary loads without a security alert.
+3. Upload each attack-specific sample and check the corresponding findings tab.
+4. Upload `combined_findings.pcap` and confirm that all three detector categories report findings.
+5. Download the PDF report and confirm that its counts and detailed findings match the dashboard.
+
+Exact alert counts depend on the thresholds and grouping logic in your detector modules. If a detector does not trigger, compare its configured threshold with the traffic volumes shown above.
+
+## Wireshark display filters
+
+| Sample | Filter |
+| --- | --- |
+| Port scan | `ip.src == 192.0.2.50 && tcp.flags.syn == 1 && tcp.flags.ack == 0` |
+| SYN flood | `ip.dst == 198.51.100.80 && tcp.dstport == 80 && tcp.flags.syn == 1 && tcp.flags.ack == 0` |
+| DNS anomaly | `dns.qry.name` |
 
 ## Data and Privacy
 
@@ -198,7 +290,7 @@ These thresholds are starting values for a learning project. Legitimate vulnerab
 - [x] Implement and validate port-scan detection
 - [x] Add SYN-flood and DNS-anomaly detection
 - [ ] Add evidence filters and alert investigation views
-- [ ] Add investigation-report export
+- [x] Add investigation-report export
 - [ ] Add automated tests and sample sanitized captures
 - [ ] Publish screenshots and a demonstration video
 
