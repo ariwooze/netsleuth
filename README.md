@@ -20,24 +20,37 @@ All detections are rule-based and explainable. A finding indicates suspicious ac
 
 ## Features
 
-### Initial version
+### Current Version
 
-- Upload `.pcap` and `.pcapng` files
-- Parse packets locally with TShark and PyShark
-- Display packet count, traffic volume, IP addresses, protocols, and ports
+- Upload `.pcap` and `.pcapng` capture files
+- Parse packets locally using TShark and PyShark
+- Display capture summaries, including:
+  - Total packet count
+  - Traffic volume
+  - Unique source and destination IP addresses
+  - Capture duration
+  - Protocol distribution
 - Visualize protocol distribution and top network talkers
 - Detect possible port-scanning activity
-- Show the packet-level evidence behind findings
+- Detect possible SYN-flood activity
+- Detect repeated and unusually long DNS queries
+- Assign `Low`, `Medium`, or `High` severity levels to findings
+- Display detailed findings in separate investigation tabs
+- Show packet-level evidence for further investigation
+- Filter packet evidence by protocol and IP address
+- Export investigation results as a PDF report
+- Export filtered packet evidence as a CSV file
 
-### Planned
+### Planned Enhancements
 
-- Possible SYN-flood detection
-- DNS anomaly detection
-- Cleartext credential and protocol warnings
-- Suspicious outbound-connection detection
-- Search and filtering for investigation tables
-- Severity scoring and alert details
-- Investigation-report export
+- Detect cleartext credentials and insecure protocols
+- Detect suspicious outbound connections
+- Add more advanced investigation filters
+- Improve alert-to-packet evidence correlation
+- Allow users to configure detection thresholds
+- Add automated parser and detector tests
+- Add additional detection rules and protocol analysis
+- Support comparisons between multiple packet captures
 
 ## How It Works
 
@@ -90,30 +103,26 @@ The exact structure may change as the project develops.
 
 ## Prerequisites
 
-Before starting, install:
+Before installing NetSleuth, ensure the following tools are available:
 
 - Python 3.10 or newer
 - `pip`
+- Python virtual-environment support
 - TShark
 - Git
+- A modern web browser
 
-The project is being developed on Kali Linux, but it can also run on another operating system if Python and TShark are correctly installed.
+NetSleuth was developed and tested on Kali Linux. It can also run on other Debian-based Linux distributions, Windows, or macOS if Python and TShark are installed and configured correctly.
 
-Confirm the main tools are available:
+### Verify the Required Tools
+
+Run the following commands:
 
 ```bash
 python3 --version
-pip3 --version
+python3 -m pip --version
 tshark --version
 git --version
-```
-
-On Kali or Debian-based Linux, missing packages can be installed with:
-
-```bash
-sudo apt update
-sudo apt install python3-pip python3-venv tshark git -y
-```
 
 ## Installation
 
@@ -283,17 +292,6 @@ Exact alert counts depend on the thresholds and grouping logic in your detector 
 - IP addresses are not automatically classified as trusted or malicious.
 - NetSleuth performs offline analysis and does not provide real-time monitoring.
 - A security finding is an investigation lead, not confirmation of an attack.
-
-## Roadmap
-
-- [x] Build the PCAP upload interface
-- [x] Implement packet parsing and data cleaning
-- [x] Add summary metrics and protocol visualizations
-- [x] Implement and validate port-x] Add evidence filters and alert investigation views
-- [x] Add investigation-report export
-- [x] Add sanitized sample captures
-
-These checkboxes will be updated once each feature is completed so visitors can immediately understand the project's progress.
 
 ## Ethical Use
 
